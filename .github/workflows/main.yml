@@ -1,1 +1,54 @@
 
+import android.os.Bundle
+import android.widget.Button
+import android.widget.EditText
+import androidx.activity.ComponentActivity
+import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.launch
+
+class MainActivity : ComponentActivity() {
+    private lateinit var db: OrderDatabase
+    private lateinit var adapter: OrderAdapter
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        val carNameInput = findViewById<EditText>(R.id.carNameInput)
+        val partCostInput = findViewById<EditText>(R.id.partCostInput)
+        val clientPriceInput = findViewById<EditText>(R.id.clientPriceInput)
+        val addButton = findViewById<Button>(R.id.addButton)
+        val recyclerView = findViewById<RecyclerView>(R.id.recyclerView)
+
+        db = OrderDatabase.getDatabase(this)
+        adapter = OrderAdapter(listOf())
+        recyclerView.layoutManager = LinearLayoutManager(this)
+        recyclerView.adapter = adapter
+
+        // obserwacja danych z bazy
+        lifecycleScope.launch {
+            db.orderDao().getAllOrders().collect { orders ->
+                adapter.updateData(orders)
+            }
+        }
+
+        addButton.setOnClickListener {
+            val carName = carNameInput.text.toString()
+            val partCost = partCostInput.text.toString().toDoubleOrNull() ?: 0.0
+            val clientPrice = clientPriceInput.text.toString().toDoubleOrNull() ?: 0.0
+            val profit = clientPrice - partCost
+
+            val order = Order(carName = carName, partCost = partCost, clientPrice = clientPrice, profit = profit)
+
+            lifecycleScope.launch {
+                db.orderDao().insertOrder(order)
+            }
+
+            carNameInput.text.clear()
+            partCostInput.text.clear()
+            clientPriceInput.text.clear()
+        }
+    }
+}
